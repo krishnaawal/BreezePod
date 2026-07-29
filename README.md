@@ -135,7 +135,9 @@ The Apps Script checks the shared secret, validates totals again, prevents dupli
 
 ### 3. Configure Vercel
 
-`.env.example` contains the required variable names. In Vercel, open **Project Settings → Environment Variables** and add:
+`.env.example` contains the required variable names. A local `.env` file is also provided as an ignored template; put real local values there, but never commit it. The API reads secrets only through `process.env`.
+
+In Vercel, open **Project Settings → Environment Variables** and add:
 
 ```text
 GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
