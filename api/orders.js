@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
     const orderId = `BPN-${now.date.replaceAll('-', '')}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
     const order = {
       orderId, orderDate: now.date, orderTime: now.time, customerName, primaryPhone, email,
-      alternatePhone: '', province: '', district: deliveryLocation, municipality: '', area: '', wardNumber: '', fullAddress,
+      alternatePhone: '', province: '', district: deliveryLocation, deliveryLocation, municipality: '', area: '', wardNumber: '', fullAddress,
       landmark: '', productId: PRODUCT.id, productName: PRODUCT.name, selectedColor, quantity,
       unitPrice: PRODUCT.unitPrice, subtotal, deliveryCharge, totalAmount, paymentMethod, transactionCode,
       paymentScreenshotUrl: '', paymentStatus: paymentMethod === 'QR Payment' ? 'Verification Pending' : 'Pending',

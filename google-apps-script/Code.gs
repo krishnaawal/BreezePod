@@ -2,11 +2,9 @@ const TIMEZONE = 'Asia/Kathmandu';
 const SHEET_NAME = 'Orders';
 const HEADERS = [
   'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
-  'Alternate Phone', 'Province', 'District', 'Municipality or City', 'Area or Locality', 'Ward Number',
-  'Full Address', 'Nearby Landmark', 'Product ID', 'Product Name', 'Selected Color', 'Quantity',
+  'Full Address', 'Delivery Location', 'Product ID', 'Product Name', 'Selected Color', 'Quantity',
   'Unit Price', 'Subtotal', 'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code',
-  'Payment Screenshot URL', 'Payment Status', 'Order Status', 'Customer Note', 'Order Source',
-  'Confirmation Status', 'Admin Note', 'Last Updated'
+  'Payment Status', 'Order Status', 'Last Updated'
 ];
 const COLORS = ['Pink', 'Green', 'Yellow', 'Orange', 'Mint / Navy', 'Burgundy / Cream', 'White / Navy'];
 const DELIVERY_CHARGES = { 'Inside Kathmandu Valley': 100, 'Outside Kathmandu Valley': 150 };
@@ -33,7 +31,11 @@ function setupBreezePodOrders() {
 
   spreadsheet.setSpreadsheetTimeZone(TIMEZONE);
   let sheet = spreadsheet.getSheetByName(SHEET_NAME);
-  if (!sheet) {
+  if (sheet && !headersMatch_(sheet)) {
+    const archiveName = `Orders Archive ${Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd-HHmmss')}`;
+    sheet.setName(archiveName);
+    sheet = spreadsheet.insertSheet(SHEET_NAME);
+  } else if (!sheet) {
     const firstSheet = spreadsheet.getSheets()[0];
     if (spreadsheet.getSheets().length === 1 && firstSheet.getLastRow() === 0) {
       firstSheet.setName(SHEET_NAME);
@@ -94,12 +96,10 @@ function doPost(e) {
     const date = Utilities.formatDate(now, TIMEZONE, 'yyyy-MM-dd');
     const time = Utilities.formatDate(now, TIMEZONE, 'hh:mm a');
     const row = [
-      order.orderId, date, time, order.customerName, order.primaryPhone, order.email || '', order.alternatePhone || '',
-      order.province || '', order.district || '', order.municipality || '', order.area || '', order.wardNumber || '',
-      order.fullAddress, order.landmark || '', order.productId, order.productName, order.selectedColor, order.quantity,
+      order.orderId, date, time, order.customerName, order.primaryPhone, order.email || '', order.fullAddress,
+      order.deliveryLocation || order.district, order.productId, order.productName, order.selectedColor, order.quantity,
       order.unitPrice, order.subtotal, order.deliveryCharge, order.totalAmount, order.paymentMethod, order.transactionCode || '',
-      order.paymentScreenshotUrl || '', order.paymentStatus, order.orderStatus, order.customerNote || '', order.orderSource,
-      order.confirmationStatus, order.adminNote || '', `${date} ${time}`
+      order.paymentStatus, order.orderStatus, `${date} ${time}`
     ].map(safeCell_);
     sheet.appendRow(row);
     return json_({ success: true, orderId: order.orderId });
@@ -127,8 +127,14 @@ function validateOrder_(order) {
 function ensureHeaders_(sheet) {
   if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
   if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+  if (!headersMatch_(sheet)) throw new Error('Invalid sheet headers');
+}
+
+function headersMatch_(sheet) {
+  if (sheet.getLastRow() === 0) return true;
+  if (sheet.getMaxColumns() < HEADERS.length) return false;
   const current = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
-  if (HEADERS.some((header, index) => current[index] !== header)) throw new Error('Invalid sheet headers');
+  return HEADERS.every((header, index) => current[index] === header);
 }
 
 function formatOrdersSheet_(sheet) {
@@ -138,7 +144,7 @@ function formatOrdersSheet_(sheet) {
   sheet.setRowHeight(1, 34);
   if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
   sheet.autoResizeColumns(1, HEADERS.length);
-  sheet.getRange(2, 18, Math.max(sheet.getMaxRows() - 1, 1), 5).setNumberFormat('0');
+  sheet.getRange(2, 12, Math.max(sheet.getMaxRows() - 1, 1), 5).setNumberFormat('0');
 }
 
 function findOrderRow_(sheet, orderId) {
