@@ -108,7 +108,10 @@ function doPost(e) {
       order.unitPrice, order.subtotal, order.deliveryCharge, order.totalAmount, order.paymentMethod, order.transactionCode || '',
       order.paymentStatus, order.orderStatus, `${date} ${time}`
     ].map(safeCell_);
-    sheet.appendRow(row.concat(''));
+    const orderRow = nextOrderRow_(sheet);
+    sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat('')]);
+    const receiptSheet = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
+    sheet.getRange(orderRow, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptSheet.getSheetId()}&range=A${orderRow}","Open receipt")`);
     return json_({ success: true, orderId: order.orderId });
   } catch (error) {
     return json_({ success: false, error: error.message === 'Duplicate order' ? 'Duplicate order' : 'Unable to save order' });
@@ -170,11 +173,20 @@ function ensureReceiptsSheet_(spreadsheet) {
 function configureReceiptsSheet_(spreadsheet, ordersSheet) {
   const receipt = ensureReceiptsSheet_(spreadsheet);
   const receiptGid = receipt.getSheetId();
-  ordersSheet.getRange(2, HEADERS.length).setFormula(
-    `=ARRAYFORMULA(IF(A2:A="","",HYPERLINK("#gid=${receiptGid}&range=A"&ROW(A2:A),"Open receipt")))`
-  );
+  const orderRows = ordersSheet.getRange(2, 1, Math.max(ordersSheet.getMaxRows() - 1, 1), 1).getValues();
+  ordersSheet.getRange(2, HEADERS.length, Math.max(ordersSheet.getMaxRows() - 1, 1), 1).clearContent();
+  orderRows.forEach((value, index) => {
+    if (String(value[0] || '').trim()) ordersSheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptGid}&range=A${index + 2}","Open receipt")`);
+  });
   receipt.getRange(2, 1).setFormula(`=IFERROR(FILTER(${SHEET_NAME}!A2:P,${SHEET_NAME}!A2:A<>""),"")`);
   return receipt;
+}
+
+function nextOrderRow_(sheet) {
+  const values = sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), 1).getValues();
+  for (let i = 0; i < values.length; i += 1) if (!String(values[i][0] || '').trim()) return i + 2;
+  sheet.insertRowAfter(sheet.getMaxRows());
+  return sheet.getMaxRows();
 }
 
 function formatReceiptsSheet_(receipt) {
