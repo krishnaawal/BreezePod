@@ -70,17 +70,29 @@ document.querySelector('.qr-download').addEventListener('click', async (event) =
   }, 'image/jpeg', 0.95);
 });
 
-document.querySelector('#checkoutForm').addEventListener('submit', (event) => {
+document.querySelector('#checkoutForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const order = {
-    orderId: `BPN-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
-    orderDate: new Date().toISOString().slice(0, 10), customerName: form.get('customerName'), primaryPhone: form.get('primaryPhone'),
-    email: form.get('email') || '', fullAddress: form.get('fullAddress'), deliveryLocation: form.get('deliveryLocation'),
-    productId: 'breezepod-mini-fan', productName: cart.productName, selectedColor: cart.selectedColor, quantity: cart.quantity,
-    unitPrice: cart.unitPrice, subtotal, deliveryCharge: updateDeliveryCharge(), totalAmount: subtotal + updateDeliveryCharge(),
-    paymentMethod: form.get('paymentMethod'), transactionCode: form.get('transactionCode') || '', paymentStatus: form.get('paymentMethod') === 'QR Payment' ? 'Verification Pending' : 'Pending', orderStatus: 'New', confirmationStatus: 'Not Confirmed', orderSource: 'Website'
+  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  const errorBox = document.querySelector('#checkoutError');
+  const payload = {
+    customerName: form.get('customerName'), primaryPhone: form.get('primaryPhone'), email: form.get('email') || '',
+    fullAddress: form.get('fullAddress'), deliveryLocation: form.get('deliveryLocation'), selectedColor: cart.selectedColor,
+    quantity: cart.quantity, paymentMethod: form.get('paymentMethod'), transactionCode: form.get('transactionCode') || ''
   };
-  localStorage.setItem('breezepod-last-order', JSON.stringify(order));
-  window.location.href = 'thank-you.html';
+  submitButton.disabled = true;
+  submitButton.textContent = 'Saving order…';
+  errorBox.hidden = true;
+  try {
+    const result = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const body = await result.json().catch(() => ({}));
+    if (!result.ok || body.success !== true) throw new Error(body.error || 'Unable to save your order');
+    localStorage.setItem('breezepod-last-order', JSON.stringify({ ...payload, ...body.order, productName: cart.productName, selectedColor: cart.selectedColor, quantity: cart.quantity }));
+    window.location.href = 'thank-you.html';
+  } catch (error) {
+    errorBox.textContent = error.message || 'Unable to save your order. Please try again.';
+    errorBox.hidden = false;
+    submitButton.disabled = false;
+    submitButton.innerHTML = 'Place order <span>↗</span>';
+  }
 });

@@ -93,20 +93,72 @@ When QR Payment is selected:
 
 When Cash on Delivery is selected, the QR image and transaction-code field remain hidden and the order uses `paymentStatus: Pending`.
 
-## Important production note
+## Google Sheets order backend
 
-The current version is a static front-end demonstration. Orders are stored locally in the browser for the demo flow; they are not yet sent to Google Sheets.
+Orders are sent through this protected flow:
 
-For production, connect `checkout.js` to a protected server-side `/api/orders` endpoint that:
+```text
+Checkout form
+    ↓
+Vercel /api/orders
+    ↓  server-side secret
+Google Apps Script Web App
+    ↓
+Google Sheet: BreezePod Nepal Orders / Orders
+```
 
-1. Validates the submitted data on the server.
-2. Recalculates the product price and delivery charge.
-3. Generates a secure order ID.
-4. Sends sanitized order data to Google Apps Script.
-5. Stores the order in the `BreezePod Nepal Orders` Google Sheet.
-6. Keeps QR payment verification manual.
+The browser never calls Apps Script directly. The Vercel function validates the form, recalculates the Rs. 399 product price and Rs. 100/Rs. 150 delivery charge, generates the order number, and forwards only sanitized data. QR orders are saved as `Verification Pending` and must be checked manually.
 
-Never expose the Apps Script URL or shared secret in browser-side code.
+### 1. Create the Google Sheet
+
+Create a Google Sheet named `BreezePod Nepal Orders`, with a worksheet named `Orders`. In the first row, add these headers exactly:
+
+```text
+Order ID | Order Date | Order Time | Customer Name | Primary Phone | Customer Email | Alternate Phone | Province | District | Municipality or City | Area or Locality | Ward Number | Full Address | Nearby Landmark | Product ID | Product Name | Selected Color | Quantity | Unit Price | Subtotal | Delivery Charge | Total Amount | Payment Method | Transaction Code | Payment Screenshot URL | Payment Status | Order Status | Customer Note | Order Source | Confirmation Status | Admin Note | Last Updated
+```
+
+The extra `Customer Email` column is included so the optional checkout email is retained.
+
+### 2. Deploy Google Apps Script
+
+1. Open [script.google.com](https://script.google.com/) and create a new project.
+2. Copy the contents of `google-apps-script/Code.gs` into the Apps Script editor.
+3. Open **Project Settings → Script properties**.
+4. Add `SPREADSHEET_ID` with the ID from the Google Sheet URL.
+5. Add `ORDER_API_SECRET` with a long random secret. Use the same secret in Vercel.
+6. Click **Deploy → New deployment**.
+7. Select **Web app**.
+8. Set **Execute as** to your account and **Who has access** to anyone.
+9. Deploy and copy the Web app URL ending in `/exec`.
+
+The Apps Script checks the shared secret, validates totals again, prevents duplicate order IDs with `LockService`, protects against spreadsheet formula injection, and writes Nepal date/time using `Asia/Kathmandu`.
+
+### 3. Configure Vercel
+
+`.env.example` contains the required variable names. In Vercel, open **Project Settings → Environment Variables** and add:
+
+```text
+GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
+ORDER_API_SECRET=the-same-long-random-secret
+```
+
+Add them for the Production environment, then redeploy. Never use `NEXT_PUBLIC_` for these variables, never place real secrets in the repository, and never expose the Apps Script URL in browser code.
+
+### 4. Test locally
+
+Use a Vercel-compatible local server so `/api/orders` is available. After installing the Vercel CLI, run:
+
+```bash
+vercel dev
+```
+
+Then open the local URL it provides. A plain `python3 -m http.server` server can preview the pages but cannot execute the Vercel order API.
+
+### Order API files
+
+- `api/orders.js` — secure Vercel serverless endpoint
+- `google-apps-script/Code.gs` — Google Sheets writer and duplicate protection
+- `.env.example` — safe environment-variable template
 
 ## Main files
 
