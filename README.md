@@ -51,7 +51,7 @@ Payment Receipt
 
 The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, and secure Script Properties automatically. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-It also creates a `Payment Receipts` worksheet. Every new order automatically adds one receipt row there. The final `Payment Receipt` column in `Orders` contains a clickable link to that exact receipt row. To regenerate an older order’s link, open `Orders`, click its row, then use **BreezePod → Create receipt from selected order**.
+It also creates a `Payment Receipts` worksheet. It mirrors every order automatically using Google Sheets formulas, so each new order immediately appears as a receipt row. The final `Payment Receipt` column in `Orders` contains a clickable link to that exact receipt row. No second server request is needed for receipt generation.
 
 ### What the log values mean
 
