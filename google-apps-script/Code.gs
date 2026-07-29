@@ -1,10 +1,16 @@
 const TIMEZONE = 'Asia/Kathmandu';
 const SHEET_NAME = 'Orders';
+const RECEIPTS_SHEET_NAME = 'Payment Receipts';
 const HEADERS = [
   'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
   'Full Address', 'Delivery Location', 'Selected Color', 'Quantity',
   'Unit Price', 'Subtotal', 'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code',
-  'Payment Status', 'Order Status', 'Last Updated'
+  'Payment Status', 'Order Status', 'Last Updated', 'Payment Receipt'
+];
+const RECEIPT_HEADERS = [
+  'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
+  'Full Address', 'Delivery Location', 'Selected Color', 'Quantity', 'Product Amount',
+  'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code', 'Payment Status'
 ];
 const COLORS = ['Pink', 'Green', 'Yellow', 'Orange', 'Mint / Navy', 'Burgundy / Cream', 'White / Navy'];
 const DELIVERY_CHARGES = { 'Inside Kathmandu Valley': 100, 'Outside Kathmandu Valley': 150 };
@@ -46,7 +52,7 @@ function setupBreezePodOrders() {
   }
   ensureHeaders_(sheet);
   formatOrdersSheet_(sheet);
-  ensureReceiptSheet_(spreadsheet);
+  ensureReceiptsSheet_(spreadsheet);
 
   let secret = properties.getProperty('ORDER_API_SECRET');
   if (!secret) {
@@ -102,8 +108,11 @@ function doPost(e) {
       order.unitPrice, order.subtotal, order.deliveryCharge, order.totalAmount, order.paymentMethod, order.transactionCode || '',
       order.paymentStatus, order.orderStatus, `${date} ${time}`
     ].map(safeCell_);
-    sheet.appendRow(row);
-    writeReceipt_(spreadsheet, row);
+    sheet.appendRow(row.concat(''));
+    const orderRow = sheet.getLastRow();
+    const receiptRow = writeReceipt_(spreadsheet, row);
+    const receiptSheet = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
+    sheet.getRange(orderRow, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptSheet.getSheetId()}&range=A${receiptRow}","Open receipt")`);
     return json_({ success: true, orderId: order.orderId });
   } catch (error) {
     return json_({ success: false, error: error.message === 'Duplicate order' ? 'Duplicate order' : 'Unable to save order' });
@@ -167,49 +176,49 @@ function createReceiptFromSelectedOrder() {
     SpreadsheetApp.getUi().alert('Select a customer order row, not the header row.');
     return;
   }
-  writeReceipt_(spreadsheet, sheet.getRange(rowNumber, 1, 1, HEADERS.length).getValues()[0]);
-  spreadsheet.setActiveSheet(spreadsheet.getSheetByName('Payment Receipt'));
+  const row = sheet.getRange(rowNumber, 1, 1, HEADERS.length).getValues()[0];
+  const receiptRow = writeReceipt_(spreadsheet, row);
+  const receiptSheet = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
+  sheet.getRange(rowNumber, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptSheet.getSheetId()}&range=A${receiptRow}","Open receipt")`);
+  spreadsheet.setActiveSheet(receiptSheet);
 }
 
-function ensureReceiptSheet_(spreadsheet) {
-  let receipt = spreadsheet.getSheetByName('Payment Receipt');
-  if (!receipt) receipt = spreadsheet.insertSheet('Payment Receipt');
+function ensureReceiptsSheet_(spreadsheet) {
+  let receipt = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
+  const oldReceipt = spreadsheet.getSheetByName('Payment Receipt');
+  if (!receipt && oldReceipt) oldReceipt.setName(`Payment Receipt Archive ${Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd-HHmmss')}`);
+  if (!receipt) receipt = spreadsheet.insertSheet(RECEIPTS_SHEET_NAME);
   receipt.setHiddenGridlines(true);
-  receipt.setColumnWidth(1, 170);
-  receipt.setColumnWidth(2, 330);
-  if (receipt.getLastRow() === 0) {
-    receipt.getRange('A1:B1').merge().setValue('Select an order row, then use BreezePod → Create receipt from selected order.');
-    receipt.getRange('A1:B1').setWrap(true).setFontColor('#6b7d76').setFontStyle('italic');
-    receipt.setRowHeight(1, 38);
-  }
+  if (receipt.getMaxColumns() < RECEIPT_HEADERS.length) receipt.insertColumnsAfter(receipt.getMaxColumns(), RECEIPT_HEADERS.length - receipt.getMaxColumns());
+  if (receipt.getLastRow() === 0) receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setValues([RECEIPT_HEADERS]);
+  receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setWrap(true);
+  receipt.setFrozenRows(1);
+  receipt.setRowHeight(1, 34);
+  receipt.autoResizeColumns(1, RECEIPT_HEADERS.length);
   return receipt;
 }
 
 function writeReceipt_(spreadsheet, row) {
-  const receipt = ensureReceiptSheet_(spreadsheet);
-  receipt.getRange('A1:B1').breakApart();
-  receipt.clear();
-  receipt.getRange('A1:B1').merge().setValue('BreezePod Nepal — PAYMENT RECEIPT');
-  receipt.getRange('A1:B1').setFontSize(18).setFontWeight('bold').setFontColor('#173b36').setHorizontalAlignment('center');
-  receipt.getRange('A2:B2').merge().setValue('Keep this receipt for your records.');
-  receipt.getRange('A2:B2').setFontColor('#6b7d76').setHorizontalAlignment('center');
-  const fields = [
-    ['Order number', row[0]], ['Order date', `${row[1]} ${row[2]}`],
-    ['Customer name', row[3]], ['Phone number', row[4]], ['Email', row[5] || '—'],
-    ['Full delivery address', row[6]], ['Delivery location', row[7]], ['Selected color', row[8]],
-    ['Quantity', row[9]], ['Product amount', `Rs. ${row[11]}`], ['Delivery charge', `Rs. ${row[12]}`],
-    ['Payment method', row[14]], ['Transaction code', row[15] || '—'], ['Payment status', row[16]],
-    ['Total payable', `Rs. ${row[13]}`]
-  ];
-  receipt.getRange(4, 1, fields.length, 2).setValues(fields);
-  receipt.getRange(4, 1, fields.length, 1).setFontWeight('bold').setFontColor('#6b7d76');
-  receipt.getRange(4, 1, fields.length, 2).setWrap(true).setVerticalAlignment('top');
-  receipt.getRange(4, 2, fields.length, 1).setFontColor('#173b36');
-  receipt.getRange(4, 1, fields.length, 2).setBorder(false, false, true, false, false, false, '#e8e4d9', SpreadsheetApp.BorderStyle.SOLID);
-  receipt.getRange(4 + fields.length - 1, 1, 1, 2).setFontSize(15).setFontWeight('bold').setBackground('#f4d47b');
-  receipt.setRowHeight(1, 32);
-  receipt.setRowHeight(2, 24);
-  receipt.autoResizeRows(4, fields.length);
+  const receipt = ensureReceiptsSheet_(spreadsheet);
+  const receiptValues = [
+    row[0], row[1], row[2], row[3], row[4], row[5] || '', row[6], row[7], row[8], row[9],
+    row[11], row[12], row[13], row[14], row[15] || '', row[16]
+  ].map(safeCell_);
+  const existingRow = findReceiptRow_(receipt, row[0]);
+  if (existingRow === -1) receipt.appendRow(receiptValues);
+  else receipt.getRange(existingRow, 1, 1, RECEIPT_HEADERS.length).setValues([receiptValues]);
+  const savedRow = existingRow === -1 ? receipt.getLastRow() : existingRow;
+  receipt.getRange(savedRow, 1, 1, RECEIPT_HEADERS.length).setWrap(true).setVerticalAlignment('top');
+  receipt.getRange(savedRow, 13).setFontWeight('bold').setBackground('#f4d47b');
+  return savedRow;
+}
+
+function findReceiptRow_(sheet, orderId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i += 1) if (String(ids[i][0]) === String(orderId)) return i + 2;
+  return -1;
 }
 
 function findOrderRow_(sheet, orderId) {

@@ -37,6 +37,7 @@ Transaction Code
 Payment Status
 Order Status
 Last Updated
+Payment Receipt
 ```
 
 ### Create the Sheet automatically
@@ -50,7 +51,7 @@ Last Updated
 
 The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, and secure Script Properties automatically. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-It also creates a `Payment Receipt` worksheet. Every new order fills this sheet with a clean, print-friendly receipt. To print an older order, open `Orders`, click any order row, then use **BreezePod → Create receipt from selected order**. Open the `Payment Receipt` worksheet and print it from Google Sheets.
+It also creates a `Payment Receipts` worksheet. Every new order automatically adds one receipt row there. The final `Payment Receipt` column in `Orders` contains a clickable link to that exact receipt row. To regenerate an older order’s link, open `Orders`, click its row, then use **BreezePod → Create receipt from selected order**.
 
 ### What the log values mean
 
@@ -96,7 +97,7 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 5. Test COD: the QR panel must remain hidden.
 6. Test QR Payment: the QR panel and required transaction-code field must appear.
 7. Submit the order and confirm the new row appears in the `Orders` worksheet.
-8. Open `Payment Receipt` and print the receipt for the customer.
+8. Click the order’s **Open receipt** link in the `Payment Receipt` column, then print that receipt row from Google Sheets.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 
