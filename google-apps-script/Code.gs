@@ -1,6 +1,5 @@
 const TIMEZONE = 'Asia/Kathmandu';
 const SHEET_NAME = 'Orders';
-const RECEIPTS_SHEET_NAME = 'Payment Receipts';
 const HEADERS = [
   'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
   'Full Address', 'Delivery Location', 'Selected Color', 'Quantity',
@@ -48,9 +47,8 @@ function setupBreezePodOrders() {
   ensureHeaders_(sheet);
   formatOrdersSheet_(sheet);
   compactOrders_(sheet);
-  const receipts = ensureReceiptsSheet_(spreadsheet);
-  syncReceipts_(sheet, receipts);
-  removeOtherSheets_(spreadsheet, sheet, receipts);
+  removeOtherSheets_(spreadsheet, sheet);
+  generateExistingReceiptPdfs_(spreadsheet, sheet);
 
   let secret = properties.getProperty('ORDER_API_SECRET');
   if (!secret) {
@@ -108,10 +106,7 @@ function doPost(e) {
     ].map(safeCell_);
     const orderRow = nextOrderRow_(sheet);
     sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat('')]);
-    const receiptSheet = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
-    const receiptRow = receiptSheet.getLastRow() ? receiptSheet.getLastRow() + 2 : 1;
-    renderReceiptBlock_(receiptSheet, receiptRow, row);
-    const receiptFile = createReceiptPdf_(spreadsheet, receiptSheet, row, receiptRow);
+    const receiptFile = createReceiptPdf_(spreadsheet, row);
     sheet.getRange(orderRow, HEADERS.length).setFormula(`=HYPERLINK("${receiptFile.getUrl()}","Open receipt PDF")`);
     return json_({ success: true, orderId: order.orderId });
   } catch (error) {
@@ -172,9 +167,9 @@ function compactOrders_(sheet) {
   }
 }
 
-function removeOtherSheets_(spreadsheet, ordersSheet, receiptsSheet) {
+function removeOtherSheets_(spreadsheet, ordersSheet) {
   spreadsheet.getSheets().slice().forEach(sheet => {
-    if (![ordersSheet.getSheetId(), receiptsSheet.getSheetId()].includes(sheet.getSheetId())) spreadsheet.deleteSheet(sheet);
+    if (sheet.getSheetId() !== ordersSheet.getSheetId()) spreadsheet.deleteSheet(sheet);
   });
 }
 
@@ -183,26 +178,6 @@ function nextOrderRow_(sheet) {
   for (let i = 0; i < values.length; i += 1) if (!String(values[i][0] || '').trim()) return i + 2;
   sheet.insertRowAfter(sheet.getMaxRows());
   return sheet.getMaxRows();
-}
-
-function ensureReceiptsSheet_(spreadsheet) {
-  let receipt = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
-  let shouldFormat = false;
-  if (!receipt) { receipt = spreadsheet.insertSheet(RECEIPTS_SHEET_NAME); shouldFormat = true; }
-  if (shouldFormat) formatReceiptsSheet_(receipt);
-  return receipt;
-}
-
-function syncReceipts_(ordersSheet, receiptsSheet) {
-  const orderRows = ordersSheet.getRange(2, 1, Math.max(ordersSheet.getMaxRows() - 1, 1), HEADERS.length).getValues().filter(row => String(row[0] || '').trim());
-  receiptsSheet.clear();
-  formatReceiptsSheet_(receiptsSheet);
-  orderRows.forEach((row, index) => {
-    const receiptRow = index ? 1 + index * 21 : 1;
-    renderReceiptBlock_(receiptsSheet, receiptRow, row);
-    const receiptFile = createReceiptPdf_(ordersSheet.getParent(), receiptsSheet, row, receiptRow);
-    ordersSheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("${receiptFile.getUrl()}","Open receipt PDF")`);
-  });
 }
 
 function formatReceiptsSheet_(sheet) {
@@ -237,19 +212,35 @@ function displayDate_(value, format) {
   return value instanceof Date ? Utilities.formatDate(value, TIMEZONE, format) : String(value || '—');
 }
 
-function createReceiptPdf_(spreadsheet, receiptSheet, row, startRow) {
-  SpreadsheetApp.flush();
-  const range = `A${startRow}:B${startRow + 14}`;
-  const exportUrl = `${spreadsheet.getUrl().replace(/edit.*$/, '')}export?format=pdf&gid=${receiptSheet.getSheetId()}&range=${encodeURIComponent(range)}&size=A4&portrait=true&fitw=true&sheetnames=false&printtitle=false&pagenumbers=false&gridlines=false&fzr=false`;
-  const response = UrlFetchApp.fetch(exportUrl, {
-    headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
-    muteHttpExceptions: true
+function generateExistingReceiptPdfs_(spreadsheet, sheet) {
+  const rowCount = Math.max(sheet.getMaxRows() - 1, 1);
+  const rows = sheet.getRange(2, 1, rowCount, HEADERS.length).getValues();
+  rows.forEach((row, index) => {
+    if (!String(row[0] || '').trim()) return;
+    const receiptFile = createReceiptPdf_(spreadsheet, row);
+    sheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("${receiptFile.getUrl()}","Open receipt PDF")`);
   });
-  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) throw new Error('Unable to create receipt PDF');
-  const filename = `BreezePod Receipt - ${row[0]}.pdf`;
-  const existing = DriveApp.getFilesByName(filename);
-  while (existing.hasNext()) existing.next().setTrashed(true);
-  return DriveApp.createFile(response.getBlob().setName(filename));
+}
+
+function createReceiptPdf_(spreadsheet, row) {
+  const receiptSheet = spreadsheet.insertSheet(`Receipt PDF ${new Date().getTime()}`);
+  try {
+    formatReceiptsSheet_(receiptSheet);
+    renderReceiptBlock_(receiptSheet, 1, row);
+    SpreadsheetApp.flush();
+    const exportUrl = `${spreadsheet.getUrl().replace(/edit.*$/, '')}export?format=pdf&gid=${receiptSheet.getSheetId()}&range=${encodeURIComponent('A1:B15')}&size=A4&portrait=true&fitw=true&sheetnames=false&printtitle=false&pagenumbers=false&gridlines=false&fzr=false`;
+    const response = UrlFetchApp.fetch(exportUrl, {
+      headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) throw new Error('Unable to create receipt PDF');
+    const filename = `BreezePod Receipt - ${row[0]}.pdf`;
+    const existing = DriveApp.getFilesByName(filename);
+    while (existing.hasNext()) existing.next().setTrashed(true);
+    return DriveApp.createFile(response.getBlob().setName(filename));
+  } finally {
+    spreadsheet.deleteSheet(receiptSheet);
+  }
 }
 
 function findOrderRow_(sheet, orderId) {

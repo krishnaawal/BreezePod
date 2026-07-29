@@ -51,7 +51,7 @@ Payment Receipt
 
 The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, secure Script Properties, and printable receipt PDF support automatically. It may ask for permission to use Google Drive and fetch the formatted PDF export. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-The `Orders` worksheet stores customer orders, and the separate `Payment Receipts` worksheet is used as the formatted PDF template. The final `Payment Receipt` column in `Orders` links directly to an actual PDF file saved in Google Drive.
+Only the `Orders` worksheet remains visible. A temporary worksheet is created and removed automatically while generating each formatted PDF. The final `Payment Receipt` column in `Orders` links directly to an actual PDF file saved in Google Drive.
 
 ### What the log values mean
 
