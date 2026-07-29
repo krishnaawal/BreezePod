@@ -11,7 +11,7 @@ Mobile-first single-product storefront and order collection system for the Breez
 5. Customer chooses Cash on Delivery or QR Payment.
 6. QR customers see the payment QR and must enter a transaction code.
 7. The order is saved to Google Sheets through the secure Vercel API.
-8. Customer sees `thank-you.html` and can open a printable payment receipt at `receipt.html`.
+8. Customer sees `thank-you.html`. The seller prints the payment receipt from Google Sheets.
 
 ## Google Sheets setup
 
@@ -49,6 +49,8 @@ Last Updated
 6. Open the execution log and copy the displayed `spreadsheetUrl` and `orderApiSecret` values.
 
 The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, and secure Script Properties automatically. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
+
+It also creates a `Payment Receipt` worksheet. Every new order fills this sheet with a clean, print-friendly receipt. To print an older order, open `Orders`, click any order row, then use **BreezePod → Create receipt from selected order**. Open the `Payment Receipt` worksheet and print it from Google Sheets.
 
 ### What the log values mean
 
@@ -93,8 +95,8 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 4. Test both delivery locations and confirm the total changes by Rs. 100 or Rs. 150.
 5. Test COD: the QR panel must remain hidden.
 6. Test QR Payment: the QR panel and required transaction-code field must appear.
-7. Submit the order, open the payment receipt, and use **Print receipt**.
-8. Confirm the new row appears in the `Orders` worksheet.
+7. Submit the order and confirm the new row appears in the `Orders` worksheet.
+8. Open `Payment Receipt` and print the receipt for the customer.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 
@@ -114,10 +116,9 @@ index.html                    Product landing page
 styles.css                    Product page styles
 app.js                        Product selection and checkout handoff
 checkout.html                 Checkout page
-checkout.css                  Checkout, receipt, and thank-you styles
+checkout.css                  Checkout and thank-you styles
 checkout.js                   Invoice, payment, and API submission
 thank-you.html                Confirmation page
-receipt.html                  Printable payment receipt
 api/orders.js                 Secure Vercel serverless endpoint
 google-apps-script/Code.gs    Automatic Sheet setup and order writer
 .env.example                  Safe environment-variable template
