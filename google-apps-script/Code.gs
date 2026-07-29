@@ -52,6 +52,7 @@ function setupBreezePodOrders() {
   }
   ensureHeaders_(sheet);
   formatOrdersSheet_(sheet);
+  compactOrders_(sheet);
   configureReceiptsSheet_(spreadsheet, sheet);
 
   let secret = properties.getProperty('ORDER_API_SECRET');
@@ -155,6 +156,14 @@ function formatOrdersSheet_(sheet) {
   if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
   sheet.autoResizeColumns(1, HEADERS.length);
   sheet.getRange(2, 12, Math.max(sheet.getMaxRows() - 1, 1), 5).setNumberFormat('0');
+}
+
+function compactOrders_(sheet) {
+  const rowCount = Math.max(sheet.getMaxRows() - 1, 1);
+  const rows = sheet.getRange(2, 1, rowCount, HEADERS.length).getValues()
+    .filter(row => String(row[0] || '').trim());
+  sheet.getRange(2, 1, rowCount, HEADERS.length).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
 }
 
 function ensureReceiptsSheet_(spreadsheet) {
