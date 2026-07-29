@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
     const transactionCode = text(body.transactionCode, 100);
     const quantity = Number(body.quantity);
 
-    if (customerName.length < 2 || primaryPhone.length < 7 || fullAddress.length < 8) {
+    if (customerName.length < 2 || primaryPhone.length < 7 || fullAddress.length < 5) {
       return response(res, 400, { error: 'Please provide valid customer and delivery details' });
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return response(res, 400, { error: 'Please provide a valid email address' });
