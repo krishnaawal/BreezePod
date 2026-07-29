@@ -82,9 +82,14 @@ function doGet(e) {
     const rowNumber = findOrderRow_(sheet, orderId);
     if (rowNumber < 2) return HtmlService.createHtmlOutput('Receipt not found');
     const row = sheet.getRange(rowNumber, 1, 1, HEADERS.length).getValues()[0];
+    const receiptCell = sheet.getRange(rowNumber, HEADERS.length);
+    const existingFormula = receiptCell.getFormula();
+    const existingUrl = hyperlinkUrl_(existingFormula);
+    if (existingUrl && existingUrl.indexOf('?receipt=') === -1) return openPdf_(existingUrl);
     const receiptFile = createReceiptPdf_(spreadsheet, row);
-    const pdfUrl = htmlEscape_(receiptFile.getUrl());
-    return HtmlService.createHtmlOutput(`<meta http-equiv="refresh" content="0;url=${pdfUrl}"><p>Opening receipt PDF… <a href="${pdfUrl}">Open PDF</a></p>`);
+    const pdfUrl = receiptFile.getUrl();
+    receiptCell.setFormula(`=HYPERLINK("${pdfUrl}","Open receipt PDF")`);
+    return openPdf_(pdfUrl);
   } catch (_) {
     return HtmlService.createHtmlOutput('Unable to create receipt PDF. Please try again.');
   }
@@ -201,13 +206,14 @@ function formatReceiptsSheet_(sheet) {
 }
 
 function renderReceiptBlock_(sheet, startRow, row) {
-  sheet.getRange(startRow, 1, 1, 2).merge().setValue('BreezePod Nepal — PAYMENT RECEIPT');
+  sheet.getRange(startRow, 1, 1, 2).merge().setValue('BreezePod Nepal — SALES BILL');
   sheet.getRange(startRow + 1, 1, 1, 2).merge().setValue(`Order ID: ${row[0]}  ·  ${displayDate_(row[1], 'yyyy-MM-dd')} ${displayDate_(row[2], 'hh:mm a')}`);
-  sheet.getRange(startRow + 3, 1, 1, 2).merge().setValue('PAYMENT DETAILS');
+  sheet.getRange(startRow + 3, 1, 1, 2).merge().setValue('BILL DETAILS');
   const fields = [
     ['Customer name', row[3]], ['Phone number', row[4]], ['Email', row[5] || '—'],
-    ['Payment method', row[14]], ['Transaction code', row[15] || '—'], ['Payment status', row[16]],
-    ['Product price', `Rs. ${row[11]}`], ['Delivery charge', `Rs. ${row[12]}`], ['TOTAL PAYABLE', `Rs. ${row[13]}`]
+    ['Delivery address', row[6]], ['Delivery location', row[7]], ['Selected color', row[8]],
+    ['Quantity', row[9]], ['Unit price', `Rs. ${row[10]}`], ['Subtotal', `Rs. ${row[11]}`],
+    ['Delivery charge', `Rs. ${row[12]}`], ['TOTAL PAYABLE', `Rs. ${row[13]}`]
   ];
   sheet.getRange(startRow + 4, 1, fields.length, 2).setValues(fields).setWrap(true).setVerticalAlignment('top');
   sheet.getRange(startRow, 1, 1, 2).setFontSize(16).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setHorizontalAlignment('center');
@@ -229,8 +235,11 @@ function displayDate_(value, format) {
 function addReceiptLinks_(spreadsheet, sheet) {
   const rowCount = Math.max(sheet.getMaxRows() - 1, 1);
   const rows = sheet.getRange(2, 1, rowCount, HEADERS.length).getValues();
+  const formulas = sheet.getRange(2, HEADERS.length, rowCount, 1).getFormulas();
   rows.forEach((row, index) => {
     if (!String(row[0] || '').trim()) return;
+    const currentUrl = hyperlinkUrl_(formulas[index][0]);
+    if (currentUrl && currentUrl.indexOf('?receipt=') === -1) return;
     const receiptUrl = `${ScriptApp.getService().getUrl()}?receipt=${encodeURIComponent(row[0])}`;
     sheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("${receiptUrl}","Generate receipt PDF")`);
   });
@@ -259,6 +268,16 @@ function createReceiptPdf_(spreadsheet, row) {
 
 function htmlEscape_(value) {
   return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function hyperlinkUrl_(formula) {
+  const match = String(formula || '').match(/^=HYPERLINK\("([^"]+)"/i);
+  return match ? match[1] : '';
+}
+
+function openPdf_(pdfUrl) {
+  const safeUrl = htmlEscape_(pdfUrl);
+  return HtmlService.createHtmlOutput(`<meta http-equiv="refresh" content="0;url=${safeUrl}"><p>Opening receipt PDF… <a href="${safeUrl}">Open PDF</a></p>`);
 }
 
 function findOrderRow_(sheet, orderId) {

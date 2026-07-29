@@ -51,7 +51,7 @@ Payment Receipt
 
 The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, secure Script Properties, and printable receipt PDF support automatically. It may ask for permission to use Google Drive and fetch the formatted PDF export. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-Only the `Orders` worksheet remains visible. A temporary worksheet is created and removed automatically while generating each formatted PDF. The final `Payment Receipt` column in `Orders` contains a `Generate receipt PDF` link. The order is saved immediately; the formatted PDF is created only when you click that link, then opens from Google Drive for downloading or printing.
+Only the `Orders` worksheet remains visible. A temporary worksheet is created and removed automatically while generating each formatted PDF. The first click on `Generate receipt PDF` creates and saves the formatted sales bill. The link then changes to `Open receipt PDF`, so later clicks open the same PDF without creating duplicates. The bill contains customer, delivery, item, price, delivery charge, and total details; payment verification details are kept only in the Orders sheet.
 
 ### What the log values mean
 
@@ -99,7 +99,7 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 5. Test COD: the QR panel must remain hidden.
 6. Test QR Payment: the QR panel and required transaction-code field must appear.
 7. Submit the order and confirm the new row appears in the `Orders` worksheet.
-8. Click **Generate receipt PDF** in the `Payment Receipt` column. The formatted PDF is created and opens from Google Drive, where it can be downloaded or printed.
+8. Click **Generate receipt PDF** in the `Payment Receipt` column once. It changes to **Open receipt PDF**; use that link afterward to open, download, or print the same bill.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 
