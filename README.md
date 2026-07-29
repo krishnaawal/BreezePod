@@ -101,6 +101,8 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 
+Do not double-click `index.html` or `checkout.html` to test ordering. That opens the pages as `file://` files, so the `/api/orders` server function cannot run. Use the deployed Vercel URL for real orders, or run `vercel dev` from the project folder for local API testing.
+
 ## Security protections
 
 - Apps Script URL and API secret stay server-side.

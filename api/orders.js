@@ -75,8 +75,17 @@ module.exports = async function handler(req, res) {
 
     const upstream = await fetch(process.env.GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
+      // Apps Script returns a 302 after handling ContentService responses.
+      // Following that redirect changes POST into GET and causes a false 405.
+      redirect: 'manual',
       body: JSON.stringify({ secret: process.env.ORDER_API_SECRET, order })
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return response(res, 200, {
+        success: true,
+        order: { orderId, orderDate: now.date, orderTime: now.time, subtotal, deliveryCharge, totalAmount, paymentStatus: order.paymentStatus }
+      });
+    }
     const upstreamText = await upstream.text();
     let upstreamBody = {};
     try { upstreamBody = JSON.parse(upstreamText); } catch (_) { /* keep generic error */ }

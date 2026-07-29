@@ -84,13 +84,16 @@ document.querySelector('#checkoutForm').addEventListener('submit', async (event)
   submitButton.textContent = 'Saving order…';
   errorBox.hidden = true;
   try {
+    if (window.location.protocol === 'file:') throw new Error('Please open the deployed website, not the HTML file directly.');
     const result = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const body = await result.json().catch(() => ({}));
     if (!result.ok || body.success !== true) throw new Error(body.error || 'Unable to save your order');
     localStorage.setItem('breezepod-last-order', JSON.stringify({ ...payload, ...body.order, selectedColor: cart.selectedColor, quantity: cart.quantity }));
     window.location.href = 'thank-you.html';
   } catch (error) {
-    errorBox.textContent = error.message || 'Unable to save your order. Please try again.';
+    errorBox.textContent = error.message === 'Failed to fetch'
+      ? 'Order service is unavailable. Please open the live Vercel website and try again.'
+      : (error.message || 'Unable to save your order. Please try again.');
     errorBox.hidden = false;
     submitButton.disabled = false;
     submitButton.innerHTML = 'Place order <span>↗</span>';
