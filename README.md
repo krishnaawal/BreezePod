@@ -51,7 +51,7 @@ Payment Receipt
 
 The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, and secure Script Properties automatically. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-It also creates a `Payment Receipts` worksheet. It mirrors every order automatically using Google Sheets formulas, so each new order immediately appears as a receipt row. The final `Payment Receipt` column in `Orders` contains a clickable link to that exact receipt row. No second server request is needed for receipt generation.
+Only the `Orders` worksheet is kept. The final `Payment Receipt` column contains a complete printable receipt for each order inside the same row. This avoids creating another worksheet or making a second server write.
 
 ### What the log values mean
 
@@ -99,7 +99,7 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 5. Test COD: the QR panel must remain hidden.
 6. Test QR Payment: the QR panel and required transaction-code field must appear.
 7. Submit the order and confirm the new row appears in the `Orders` worksheet.
-8. Click the order’s **Open receipt** link in the `Payment Receipt` column, then print that receipt row from Google Sheets.
+8. Select the order row and print it from Google Sheets. The `Payment Receipt` cell contains the complete receipt details.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 

@@ -1,16 +1,10 @@
 const TIMEZONE = 'Asia/Kathmandu';
 const SHEET_NAME = 'Orders';
-const RECEIPTS_SHEET_NAME = 'Payment Receipts';
 const HEADERS = [
   'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
   'Full Address', 'Delivery Location', 'Selected Color', 'Quantity',
   'Unit Price', 'Subtotal', 'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code',
   'Payment Status', 'Order Status', 'Last Updated', 'Payment Receipt'
-];
-const RECEIPT_HEADERS = [
-  'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
-  'Full Address', 'Delivery Location', 'Selected Color', 'Quantity', 'Product Amount',
-  'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code', 'Payment Status'
 ];
 const COLORS = ['Pink', 'Green', 'Yellow', 'Orange', 'Mint / Navy', 'Burgundy / Cream', 'White / Navy'];
 const DELIVERY_CHARGES = { 'Inside Kathmandu Valley': 100, 'Outside Kathmandu Valley': 150 };
@@ -53,7 +47,7 @@ function setupBreezePodOrders() {
   ensureHeaders_(sheet);
   formatOrdersSheet_(sheet);
   compactOrders_(sheet);
-  configureReceiptsSheet_(spreadsheet, sheet);
+  removeOtherSheets_(spreadsheet, sheet);
 
   let secret = properties.getProperty('ORDER_API_SECRET');
   if (!secret) {
@@ -110,9 +104,8 @@ function doPost(e) {
       order.paymentStatus, order.orderStatus, `${date} ${time}`
     ].map(safeCell_);
     const orderRow = nextOrderRow_(sheet);
-    sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat('')]);
-    const receiptSheet = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
-    sheet.getRange(orderRow, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptSheet.getSheetId()}&range=A${orderRow}","Open receipt")`);
+    const receiptText = createReceiptText_(order, date, time);
+    sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat(receiptText)]);
     return json_({ success: true, orderId: order.orderId });
   } catch (error) {
     return json_({ success: false, error: error.message === 'Duplicate order' ? 'Duplicate order' : 'Unable to save order' });
@@ -155,6 +148,8 @@ function formatOrdersSheet_(sheet) {
   sheet.setRowHeight(1, 34);
   if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
   sheet.autoResizeColumns(1, HEADERS.length);
+  sheet.setColumnWidth(HEADERS.length, 300);
+  sheet.getRange(2, HEADERS.length, Math.max(sheet.getMaxRows() - 1, 1), 1).setWrap(true).setVerticalAlignment('top');
   sheet.getRange(2, 12, Math.max(sheet.getMaxRows() - 1, 1), 5).setNumberFormat('0');
 }
 
@@ -162,33 +157,15 @@ function compactOrders_(sheet) {
   const rowCount = Math.max(sheet.getMaxRows() - 1, 1);
   const rows = sheet.getRange(2, 1, rowCount, HEADERS.length).getValues()
     .filter(row => String(row[0] || '').trim());
+  rows.forEach(row => { row[HEADERS.length - 1] = createReceiptTextFromRow_(row); });
   sheet.getRange(2, 1, rowCount, HEADERS.length).clearContent();
   if (rows.length) sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
 }
 
-function ensureReceiptsSheet_(spreadsheet) {
-  let receipt = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
-  const oldReceipt = spreadsheet.getSheetByName('Payment Receipt');
-  if (!receipt && oldReceipt) oldReceipt.setName(`Payment Receipt Archive ${Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd-HHmmss')}`);
-  if (!receipt) receipt = spreadsheet.insertSheet(RECEIPTS_SHEET_NAME);
-  if (receipt.getMaxColumns() < RECEIPT_HEADERS.length) receipt.insertColumnsAfter(receipt.getMaxColumns(), RECEIPT_HEADERS.length - receipt.getMaxColumns());
-  if (receipt.getLastRow() === 0) {
-    receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setValues([RECEIPT_HEADERS]);
-    formatReceiptsSheet_(receipt);
-  }
-  return receipt;
-}
-
-function configureReceiptsSheet_(spreadsheet, ordersSheet) {
-  const receipt = ensureReceiptsSheet_(spreadsheet);
-  const receiptGid = receipt.getSheetId();
-  const orderRows = ordersSheet.getRange(2, 1, Math.max(ordersSheet.getMaxRows() - 1, 1), 1).getValues();
-  ordersSheet.getRange(2, HEADERS.length, Math.max(ordersSheet.getMaxRows() - 1, 1), 1).clearContent();
-  orderRows.forEach((value, index) => {
-    if (String(value[0] || '').trim()) ordersSheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptGid}&range=A${index + 2}","Open receipt")`);
+function removeOtherSheets_(spreadsheet, ordersSheet) {
+  spreadsheet.getSheets().slice().forEach(sheet => {
+    if (sheet.getSheetId() !== ordersSheet.getSheetId()) spreadsheet.deleteSheet(sheet);
   });
-  receipt.getRange(2, 1).setFormula(`=IFERROR(FILTER(${SHEET_NAME}!A2:P,${SHEET_NAME}!A2:A<>""),"")`);
-  return receipt;
 }
 
 function nextOrderRow_(sheet) {
@@ -198,12 +175,46 @@ function nextOrderRow_(sheet) {
   return sheet.getMaxRows();
 }
 
-function formatReceiptsSheet_(receipt) {
-  receipt.setHiddenGridlines(true);
-  receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setWrap(true);
-  receipt.setFrozenRows(1);
-  receipt.setRowHeight(1, 34);
-  receipt.autoResizeColumns(1, RECEIPT_HEADERS.length);
+function createReceiptText_(order, date, time) {
+  return [
+    'BreezePod Nepal — PAYMENT RECEIPT',
+    `Order ID: ${order.orderId}`,
+    `Date: ${date} ${time}`,
+    `Customer: ${order.customerName}`,
+    `Phone: ${order.primaryPhone}`,
+    `Email: ${order.email || '—'}`,
+    `Address: ${order.fullAddress}`,
+    `Delivery: ${order.deliveryLocation}`,
+    `Color: ${order.selectedColor}`,
+    `Quantity: ${order.quantity}`,
+    `Product amount: Rs. ${order.subtotal}`,
+    `Delivery charge: Rs. ${order.deliveryCharge}`,
+    `Payment: ${order.paymentMethod}`,
+    `Transaction code: ${order.transactionCode || '—'}`,
+    `Payment status: ${order.paymentStatus}`,
+    `TOTAL PAYABLE: Rs. ${order.totalAmount}`
+  ].join('\n');
+}
+
+function createReceiptTextFromRow_(row) {
+  return [
+    'BreezePod Nepal — PAYMENT RECEIPT',
+    `Order ID: ${row[0]}`,
+    `Date: ${row[1]} ${row[2]}`,
+    `Customer: ${row[3]}`,
+    `Phone: ${row[4]}`,
+    `Email: ${row[5] || '—'}`,
+    `Address: ${row[6]}`,
+    `Delivery: ${row[7]}`,
+    `Color: ${row[8]}`,
+    `Quantity: ${row[9]}`,
+    `Product amount: Rs. ${row[11]}`,
+    `Delivery charge: Rs. ${row[12]}`,
+    `Payment: ${row[14]}`,
+    `Transaction code: ${row[15] || '—'}`,
+    `Payment status: ${row[16]}`,
+    `TOTAL PAYABLE: Rs. ${row[13]}`
+  ].join('\n');
 }
 
 function findOrderRow_(sheet, orderId) {
