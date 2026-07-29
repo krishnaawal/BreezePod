@@ -105,7 +105,8 @@ function doPost(e) {
     ].map(safeCell_);
     const orderRow = nextOrderRow_(sheet);
     const receiptText = createReceiptText_(order, date, time);
-    sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat(receiptText)]);
+    sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat('Receipt ready')]);
+    sheet.getRange(orderRow, HEADERS.length).setNote(receiptText);
     return json_({ success: true, orderId: order.orderId });
   } catch (error) {
     return json_({ success: false, error: error.message === 'Duplicate order' ? 'Duplicate order' : 'Unable to save order' });
@@ -148,8 +149,8 @@ function formatOrdersSheet_(sheet) {
   sheet.setRowHeight(1, 34);
   if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
   sheet.autoResizeColumns(1, HEADERS.length);
-  sheet.setColumnWidth(HEADERS.length, 300);
-  sheet.getRange(2, HEADERS.length, Math.max(sheet.getMaxRows() - 1, 1), 1).setWrap(true).setVerticalAlignment('top');
+  sheet.setColumnWidth(HEADERS.length, 120);
+  sheet.getRange(2, HEADERS.length, Math.max(sheet.getMaxRows() - 1, 1), 1).setWrap(false).setVerticalAlignment('middle');
   sheet.getRange(2, 12, Math.max(sheet.getMaxRows() - 1, 1), 5).setNumberFormat('0');
 }
 
@@ -157,9 +158,14 @@ function compactOrders_(sheet) {
   const rowCount = Math.max(sheet.getMaxRows() - 1, 1);
   const rows = sheet.getRange(2, 1, rowCount, HEADERS.length).getValues()
     .filter(row => String(row[0] || '').trim());
-  rows.forEach(row => { row[HEADERS.length - 1] = createReceiptTextFromRow_(row); });
+  const receiptNotes = rows.map(row => createReceiptTextFromRow_(row));
+  rows.forEach(row => { row[HEADERS.length - 1] = 'Receipt ready'; });
   sheet.getRange(2, 1, rowCount, HEADERS.length).clearContent();
-  if (rows.length) sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
+  if (rows.length) {
+    sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
+    sheet.getRange(2, HEADERS.length, rows.length, 1).setNotes(receiptNotes.map(note => [note]));
+    sheet.setRowHeights(2, rows.length, 30);
+  }
 }
 
 function removeOtherSheets_(spreadsheet, ordersSheet) {
