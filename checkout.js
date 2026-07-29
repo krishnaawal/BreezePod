@@ -1,6 +1,6 @@
 const VALLEY_DELIVERY = 100;
 const OUTSIDE_VALLEY_DELIVERY = 150;
-const fallbackCart = { productName: 'BreezePod Mini Rechargeable Fan', selectedColor: 'Pink', quantity: 1, unitPrice: 399, image: 'assets/product-hero.png' };
+const fallbackCart = { selectedColor: 'Pink', quantity: 1, unitPrice: 399, image: 'assets/product-hero.png' };
 const cart = JSON.parse(localStorage.getItem('breezepod-cart') || 'null') || fallbackCart;
 const imageMap = {
   Pink: 'assets/product-hero.png', Green: 'assets/product-green.png', Yellow: 'assets/product-yellow.png',
@@ -87,7 +87,7 @@ document.querySelector('#checkoutForm').addEventListener('submit', async (event)
     const result = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const body = await result.json().catch(() => ({}));
     if (!result.ok || body.success !== true) throw new Error(body.error || 'Unable to save your order');
-    localStorage.setItem('breezepod-last-order', JSON.stringify({ ...payload, ...body.order, productName: cart.productName, selectedColor: cart.selectedColor, quantity: cart.quantity }));
+    localStorage.setItem('breezepod-last-order', JSON.stringify({ ...payload, ...body.order, selectedColor: cart.selectedColor, quantity: cart.quantity }));
     window.location.href = 'thank-you.html';
   } catch (error) {
     errorBox.textContent = error.message || 'Unable to save your order. Please try again.';

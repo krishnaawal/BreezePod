@@ -41,7 +41,6 @@ document.querySelectorAll('.color-swatch').forEach((button) => {
 
 function goToCheckout() {
   localStorage.setItem('breezepod-cart', JSON.stringify({
-    productId: 'breezepod-mini-fan', productName: 'BreezePod Mini Rechargeable Fan',
     selectedColor, quantity, unitPrice: PRICE
   }));
   window.location.href = 'checkout.html';

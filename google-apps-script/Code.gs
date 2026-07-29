@@ -2,7 +2,7 @@ const TIMEZONE = 'Asia/Kathmandu';
 const SHEET_NAME = 'Orders';
 const HEADERS = [
   'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
-  'Full Address', 'Delivery Location', 'Product ID', 'Product Name', 'Selected Color', 'Quantity',
+  'Full Address', 'Delivery Location', 'Selected Color', 'Quantity',
   'Unit Price', 'Subtotal', 'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code',
   'Payment Status', 'Order Status', 'Last Updated'
 ];
@@ -97,7 +97,7 @@ function doPost(e) {
     const time = Utilities.formatDate(now, TIMEZONE, 'hh:mm a');
     const row = [
       order.orderId, date, time, order.customerName, order.primaryPhone, order.email || '', order.fullAddress,
-      order.deliveryLocation || order.district, order.productId, order.productName, order.selectedColor, order.quantity,
+      order.deliveryLocation || order.district, order.selectedColor, order.quantity,
       order.unitPrice, order.subtotal, order.deliveryCharge, order.totalAmount, order.paymentMethod, order.transactionCode || '',
       order.paymentStatus, order.orderStatus, `${date} ${time}`
     ].map(safeCell_);

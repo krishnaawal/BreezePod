@@ -1,8 +1,6 @@
 const crypto = require('node:crypto');
 
 const PRODUCT = {
-  id: 'breezepod-mini-fan',
-  name: 'BreezePod Mini Rechargeable Fan',
   unitPrice: 399,
   colors: ['Pink', 'Green', 'Yellow', 'Orange', 'Mint / Navy', 'Burgundy / Cream', 'White / Navy']
 };
@@ -69,7 +67,7 @@ module.exports = async function handler(req, res) {
     const order = {
       orderId, orderDate: now.date, orderTime: now.time, customerName, primaryPhone, email,
       alternatePhone: '', province: '', district: deliveryLocation, deliveryLocation, municipality: '', area: '', wardNumber: '', fullAddress,
-      landmark: '', productId: PRODUCT.id, productName: PRODUCT.name, selectedColor, quantity,
+      landmark: '', selectedColor, quantity,
       unitPrice: PRODUCT.unitPrice, subtotal, deliveryCharge, totalAmount, paymentMethod, transactionCode,
       paymentScreenshotUrl: '', paymentStatus: paymentMethod === 'QR Payment' ? 'Verification Pending' : 'Pending',
       orderStatus: 'New', customerNote: '', orderSource: 'Website', confirmationStatus: 'Not Confirmed', adminNote: ''
@@ -84,7 +82,10 @@ module.exports = async function handler(req, res) {
     try { upstreamBody = JSON.parse(upstreamText); } catch (_) { /* keep generic error */ }
     if (!upstream.ok || upstreamBody.success !== true) return response(res, 502, { error: 'Unable to save the order right now' });
 
-    return response(res, 200, { success: true, order: { orderId, totalAmount, paymentStatus: order.paymentStatus } });
+    return response(res, 200, {
+      success: true,
+      order: { orderId, orderDate: now.date, orderTime: now.time, subtotal, deliveryCharge, totalAmount, paymentStatus: order.paymentStatus }
+    });
   } catch (_) {
     return response(res, 400, { error: 'Unable to process the order' });
   }

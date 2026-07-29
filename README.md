@@ -1,47 +1,21 @@
 # BreezePod Nepal
 
-Mobile-first storefront and order collection system for the BreezePod rechargeable mini fan.
+Mobile-first single-product storefront and order collection system for the BreezePod rechargeable mini fan.
 
 ## Customer flow
 
 1. Customer chooses a color and quantity on `index.html`.
-2. **Buy now** opens `checkout.html`.
-3. Customer enters name, phone, optional email, and address.
-4. Customer selects Inside or Outside Kathmandu Valley.
-5. Delivery is calculated as Rs. 100 or Rs. 150.
-6. Customer chooses COD or QR Payment.
-7. QR customers see the QR image and must enter a transaction code.
-8. Checkout sends the order to the secure Vercel API.
-9. Vercel sends the order to Google Apps Script.
-10. Apps Script appends the order to Google Sheets.
-11. Customer is redirected to `thank-you.html`.
+2. **Buy now** opens the separate `checkout.html` page.
+3. Customer enters full name, phone, optional email, and full address.
+4. Customer selects Inside Kathmandu Valley (Rs. 100 delivery) or Outside Kathmandu Valley (Rs. 150 delivery).
+5. Customer chooses Cash on Delivery or QR Payment.
+6. QR customers see the payment QR and must enter a transaction code.
+7. The order is saved to Google Sheets through the secure Vercel API.
+8. Customer sees `thank-you.html` and can open a printable payment receipt at `receipt.html`.
 
-## Google Sheets order flow
+## Google Sheets setup
 
-```text
-Customer browser → Vercel /api/orders → Google Apps Script → Google Sheet
-```
-
-The browser never calls Apps Script directly. Vercel validates the request, recalculates price and delivery, generates the order ID, and forwards sanitized data.
-
-## Step 1: Create the Google Sheet automatically
-
-1. Open [Google Apps Script](https://script.google.com/).
-2. Click **New project**.
-3. Open `google-apps-script/Code.gs` from this repository.
-4. Copy the complete file into the Apps Script editor.
-5. Click **Save**.
-6. Select `setupBreezePodOrders` in the function dropdown.
-7. Click **Run** and approve the Google permissions.
-8. Open the **Execution log**.
-
-The function automatically creates the `BreezePod Nepal Orders` spreadsheet, the `Orders` worksheet, all required columns, the `Asia/Kathmandu` timezone, the `SPREADSHEET_ID` Script Property, and the `ORDER_API_SECRET` Script Property.
-
-If an old oversized `Orders` worksheet exists, it is renamed to `Orders Archive <timestamp>` and a clean `Orders` sheet is created. Existing rows are preserved and not deleted.
-
-## Required `Orders` columns
-
-The active sheet contains only fields used by the current checkout and order processing:
+The active `Orders` sheet contains only the fields needed by this single-product checkout. There are no Product ID or Product Name columns.
 
 ```text
 Order ID
@@ -52,8 +26,6 @@ Primary Phone
 Customer Email
 Full Address
 Delivery Location
-Product ID
-Product Name
 Selected Color
 Quantity
 Unit Price
@@ -67,111 +39,72 @@ Order Status
 Last Updated
 ```
 
-Each new order is appended as a new row.
+### Create the Sheet automatically
 
-## Step 2: Understand the Apps Script log values
+1. Open [Google Apps Script](https://script.google.com/) and create a new project.
+2. Copy the complete contents of `google-apps-script/Code.gs` into the editor.
+3. Save the project.
+4. Select `setupBreezePodOrders` from the function dropdown and click **Run**.
+5. Approve the Google permissions.
+6. Open the execution log and copy the displayed `spreadsheetUrl` and `orderApiSecret` values.
 
-After running the setup function, the log shows values similar to:
+The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, and secure Script Properties automatically. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-```text
-spreadsheetUrl: https://docs.google.com/spreadsheets/d/1AbC...xyz/edit
-orderApiSecret: 9f3a...long-random-secret...
-```
+### What the log values mean
 
-### `spreadsheetUrl`
+`spreadsheetUrl` is only the link used to open and manage the Google Sheet. Do not paste it into the website or Vercel.
 
-Do **not** paste this into Vercel, `.env`, or website code. Use it only to open the Google Sheet and view orders. The spreadsheet ID is stored automatically in Apps Script Properties.
+`orderApiSecret` is private. Copy only the secret value and use it as the Vercel variable `ORDER_API_SECRET`.
 
-### `orderApiSecret`
+## Publish the Apps Script endpoint
 
-This is private. Copy only the value after `orderApiSecret:`. Do not copy the label, quotes, spaces, or backticks. Paste the secret value into Vercel as `ORDER_API_SECRET`.
-
-## Step 3: Deploy the Apps Script Web App
-
-1. In Apps Script, click **Deploy → New deployment**.
+1. In Apps Script select **Deploy → New deployment**.
 2. Choose **Web app**.
-3. Set **Execute as** to **Me** or your Google account.
+3. Set **Execute as** to your Google account.
 4. Set **Who has access** to **Anyone**.
-5. Click **Deploy**.
-6. Copy the **Web app URL**.
+5. Deploy and copy the Web app URL.
 
-The correct URL ends with `/exec`:
+The correct URL ends in `/exec`, for example:
 
 ```text
 https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 ```
 
-Do not use the Apps Script editor URL or a URL ending in `/dev`. The full `/exec` URL becomes `GOOGLE_APPS_SCRIPT_URL` in Vercel.
+Use the full `/exec` URL. Do not use the Apps Script editor URL or a URL ending in `/dev`.
 
-## Step 4: Configure Vercel
+## Vercel environment variables
 
-Open:
-
-```text
-Vercel Dashboard → BreezePod project → Settings → Environment Variables → Add New
-```
-
-Add:
+In **Vercel Dashboard → BreezePod → Settings → Environment Variables**, add these two variables:
 
 ```text
-Name: GOOGLE_APPS_SCRIPT_URL
-Value: https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
-```
-
-Replace the example with the complete Web App URL, including `/exec`.
-
-Add:
-
-```text
-Name: ORDER_API_SECRET
-Value: the-secret-copied-from-the-Apps-Script-log
-```
-
-The secret must exactly match the generated Apps Script secret. Select **Production**, optionally select **Preview**, click **Save**, and redeploy.
-
-| Vercel variable | What to paste | Source |
-| --- | --- | --- |
-| `GOOGLE_APPS_SCRIPT_URL` | Full URL ending in `/exec` | Apps Script Web App deployment |
-| `ORDER_API_SECRET` | Secret string only | Apps Script execution log |
-
-Never add `NEXT_PUBLIC_` to these names. Never expose them in browser code.
-
-## Step 5: Local `.env`
-
-For local Vercel development, fill in `/Users/krishna/Documents/BreezePod/.env`:
-
-```env
 GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
-ORDER_API_SECRET=the-secret-copied-from-the-Apps-Script-log
+ORDER_API_SECRET=the-secret-value-from-the-Apps-Script-execution-log
 ```
 
-`.env` is ignored by Git. `.env.example` contains placeholders only.
+Use the complete `/exec` URL for `GOOGLE_APPS_SCRIPT_URL`. Use only the secret string for `ORDER_API_SECRET`. Select Production (and Preview if needed), save, and redeploy.
 
-## Step 6: Test
+For local Vercel development, place the same values in `/Users/krishna/Documents/BreezePod/.env`. This file is ignored by Git. Use `.env.example` as the safe template, and never put real secrets in browser files or committed code.
 
-1. Redeploy Vercel after adding the variables.
-2. Open the live product page.
-3. Choose a color and quantity.
-4. Click **Buy now**.
-5. Complete checkout.
-6. Choose delivery location.
-7. Choose COD or QR Payment.
-8. Enter the transaction code for QR Payment.
-9. Submit the order.
-10. Open the spreadsheet using `spreadsheetUrl` from the Apps Script log.
-11. Confirm the new order appears as a new row.
+## Testing
+
+1. Redeploy Vercel after adding the environment variables.
+2. Open the live product page and choose a color and quantity.
+3. Click **Buy now** and complete the checkout form.
+4. Test both delivery locations and confirm the total changes by Rs. 100 or Rs. 150.
+5. Test COD: the QR panel must remain hidden.
+6. Test QR Payment: the QR panel and required transaction-code field must appear.
+7. Submit the order, open the payment receipt, and use **Print receipt**.
+8. Confirm the new row appears in the `Orders` worksheet.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 
 ## Security protections
 
-- Apps Script URL and secret are server-side only.
-- Product price and delivery are recalculated on Vercel and Apps Script.
-- QR orders remain `Verification Pending` for manual review.
-- Duplicate order IDs are rejected.
-- `LockService` prevents simultaneous duplicate inserts.
-- Formula-injection characters are escaped before Sheets insertion.
-- Large and malformed requests are rejected.
+- Apps Script URL and API secret stay server-side.
+- Vercel recalculates price and delivery charges instead of trusting browser totals.
+- QR orders are marked `Verification Pending` for manual review.
+- Apps Script rejects duplicate order IDs and uses `LockService` for simultaneous orders.
+- Formula-injection characters are escaped before insertion into Sheets.
 - Real `.env` files are ignored by Git.
 
 ## Main files
@@ -181,9 +114,10 @@ index.html                    Product landing page
 styles.css                    Product page styles
 app.js                        Product selection and checkout handoff
 checkout.html                 Checkout page
-checkout.css                  Checkout and thank-you styles
+checkout.css                  Checkout, receipt, and thank-you styles
 checkout.js                   Invoice, payment, and API submission
 thank-you.html                Confirmation page
+receipt.html                  Printable payment receipt
 api/orders.js                 Secure Vercel serverless endpoint
 google-apps-script/Code.gs    Automatic Sheet setup and order writer
 .env.example                  Safe environment-variable template
