@@ -49,9 +49,9 @@ Payment Receipt
 5. Approve the Google permissions.
 6. Open the execution log and copy the displayed `spreadsheetUrl` and `orderApiSecret` values.
 
-The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, and secure Script Properties automatically. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
+The setup function creates the spreadsheet, `Orders` worksheet, exact headers above, Kathmandu timezone, secure Script Properties, and printable receipt PDF support automatically. It may ask for permission to use Google Drive and fetch the formatted PDF export. If an old `Orders` worksheet has extra columns, it is renamed to an archive sheet and a clean `Orders` worksheet is created. Existing data is preserved.
 
-The `Orders` worksheet stores customer orders, and the separate `Payment Receipts` worksheet stores clean printable receipt rows. The final `Payment Receipt` column in `Orders` links directly to each receipt row.
+The `Orders` worksheet stores customer orders, and the separate `Payment Receipts` worksheet is used as the formatted PDF template. The final `Payment Receipt` column in `Orders` links directly to an actual PDF file saved in Google Drive.
 
 ### What the log values mean
 
@@ -99,7 +99,7 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 5. Test COD: the QR panel must remain hidden.
 6. Test QR Payment: the QR panel and required transaction-code field must appear.
 7. Submit the order and confirm the new row appears in the `Orders` worksheet.
-8. Click **Print receipt** in the `Payment Receipt` column. In `Payment Receipts`, select the bill block, choose **File → Print → Selected cells**, then choose **PDF → Download** or print it directly.
+8. Click **Open receipt PDF** in the `Payment Receipt` column. The PDF opens from Google Drive, where it can be downloaded or printed.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 
