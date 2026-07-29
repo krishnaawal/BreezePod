@@ -75,6 +75,8 @@ https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 
 Use the full `/exec` URL. Do not use the Apps Script editor URL or a URL ending in `/dev`.
 
+Whenever `Code.gs` is changed, save it and create a new Web App deployment version (or edit the existing deployment and select the new version). The website uses the deployed version, not only the code visible in the editor.
+
 ## Vercel environment variables
 
 In **Vercel Dashboard → BreezePod → Settings → Environment Variables**, add these two variables:

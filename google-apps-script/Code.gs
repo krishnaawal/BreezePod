@@ -52,7 +52,7 @@ function setupBreezePodOrders() {
   }
   ensureHeaders_(sheet);
   formatOrdersSheet_(sheet);
-  ensureReceiptsSheet_(spreadsheet);
+  formatReceiptsSheet_(ensureReceiptsSheet_(spreadsheet));
 
   let secret = properties.getProperty('ORDER_API_SECRET');
   if (!secret) {
@@ -188,14 +188,20 @@ function ensureReceiptsSheet_(spreadsheet) {
   const oldReceipt = spreadsheet.getSheetByName('Payment Receipt');
   if (!receipt && oldReceipt) oldReceipt.setName(`Payment Receipt Archive ${Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd-HHmmss')}`);
   if (!receipt) receipt = spreadsheet.insertSheet(RECEIPTS_SHEET_NAME);
-  receipt.setHiddenGridlines(true);
   if (receipt.getMaxColumns() < RECEIPT_HEADERS.length) receipt.insertColumnsAfter(receipt.getMaxColumns(), RECEIPT_HEADERS.length - receipt.getMaxColumns());
-  if (receipt.getLastRow() === 0) receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setValues([RECEIPT_HEADERS]);
+  if (receipt.getLastRow() === 0) {
+    receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setValues([RECEIPT_HEADERS]);
+    formatReceiptsSheet_(receipt);
+  }
+  return receipt;
+}
+
+function formatReceiptsSheet_(receipt) {
+  receipt.setHiddenGridlines(true);
   receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setWrap(true);
   receipt.setFrozenRows(1);
   receipt.setRowHeight(1, 34);
   receipt.autoResizeColumns(1, RECEIPT_HEADERS.length);
-  return receipt;
 }
 
 function writeReceipt_(spreadsheet, row) {
