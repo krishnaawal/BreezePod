@@ -109,27 +109,29 @@ Google Sheet: BreezePod Nepal Orders / Orders
 
 The browser never calls Apps Script directly. The Vercel function validates the form, recalculates the Rs. 399 product price and Rs. 100/Rs. 150 delivery charge, generates the order number, and forwards only sanitized data. QR orders are saved as `Verification Pending` and must be checked manually.
 
-### 1. Create the Google Sheet
+### 1. Let Apps Script create the Google Sheet automatically
 
-Create a Google Sheet named `BreezePod Nepal Orders`, with a worksheet named `Orders`. In the first row, add these headers exactly:
+1. Open [script.google.com](https://script.google.com/) and create a new project.
+2. Copy the contents of `google-apps-script/Code.gs` into the Apps Script editor.
+3. Select the function `setupBreezePodOrders` from the function dropdown.
+4. Click **Run** and approve the Google permissions.
+5. Open **Execution log** and copy the generated `spreadsheetUrl` and `orderApiSecret`.
+
+The setup function creates `BreezePod Nepal Orders`, creates the `Orders` worksheet, inserts all required headers, formats the header row, freezes it, sets `Asia/Kathmandu`, stores `SPREADSHEET_ID` in Script Properties, and generates/stores `ORDER_API_SECRET`. It does not clear or overwrite existing order rows when run again.
+
+The generated columns are:
 
 ```text
 Order ID | Order Date | Order Time | Customer Name | Primary Phone | Customer Email | Alternate Phone | Province | District | Municipality or City | Area or Locality | Ward Number | Full Address | Nearby Landmark | Product ID | Product Name | Selected Color | Quantity | Unit Price | Subtotal | Delivery Charge | Total Amount | Payment Method | Transaction Code | Payment Screenshot URL | Payment Status | Order Status | Customer Note | Order Source | Confirmation Status | Admin Note | Last Updated
 ```
 
-The extra `Customer Email` column is included so the optional checkout email is retained.
-
 ### 2. Deploy Google Apps Script
 
-1. Open [script.google.com](https://script.google.com/) and create a new project.
-2. Copy the contents of `google-apps-script/Code.gs` into the Apps Script editor.
-3. Open **Project Settings → Script properties**.
-4. Add `SPREADSHEET_ID` with the ID from the Google Sheet URL.
-5. Add `ORDER_API_SECRET` with a long random secret. Use the same secret in Vercel.
-6. Click **Deploy → New deployment**.
-7. Select **Web app**.
-8. Set **Execute as** to your account and **Who has access** to anyone.
-9. Deploy and copy the Web app URL ending in `/exec`.
+1. In Apps Script, click **Deploy → New deployment**.
+2. Select **Web app**.
+3. Set **Execute as** to your account.
+4. Set **Who has access** to anyone.
+5. Deploy and copy the Web app URL ending in `/exec`.
 
 The Apps Script checks the shared secret, validates totals again, prevents duplicate order IDs with `LockService`, protects against spreadsheet formula injection, and writes Nepal date/time using `Asia/Kathmandu`.
 

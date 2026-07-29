@@ -12,6 +12,57 @@ const COLORS = ['Pink', 'Green', 'Yellow', 'Orange', 'Mint / Navy', 'Burgundy / 
 const DELIVERY_CHARGES = { 'Inside Kathmandu Valley': 100, 'Outside Kathmandu Valley': 150 };
 const UNIT_PRICE = 399;
 
+/**
+ * Run this function once from the Apps Script editor.
+ * It creates/configures the spreadsheet, worksheet, headers, timezone,
+ * Script Properties, and a long API secret without deleting existing orders.
+ */
+function setupBreezePodOrders() {
+  const properties = PropertiesService.getScriptProperties();
+  let spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+  let spreadsheet = null;
+
+  if (spreadsheetId) {
+    try { spreadsheet = SpreadsheetApp.openById(spreadsheetId); } catch (_) { spreadsheet = null; }
+  }
+  if (!spreadsheet) {
+    spreadsheet = SpreadsheetApp.create('BreezePod Nepal Orders');
+    spreadsheetId = spreadsheet.getId();
+    properties.setProperty('SPREADSHEET_ID', spreadsheetId);
+  }
+
+  spreadsheet.setSpreadsheetTimeZone(TIMEZONE);
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    const firstSheet = spreadsheet.getSheets()[0];
+    if (spreadsheet.getSheets().length === 1 && firstSheet.getLastRow() === 0) {
+      firstSheet.setName(SHEET_NAME);
+      sheet = firstSheet;
+    } else {
+      sheet = spreadsheet.insertSheet(SHEET_NAME);
+    }
+  }
+  ensureHeaders_(sheet);
+  formatOrdersSheet_(sheet);
+
+  let secret = properties.getProperty('ORDER_API_SECRET');
+  if (!secret) {
+    secret = generateSecret_();
+    properties.setProperty('ORDER_API_SECRET', secret);
+  }
+  Logger.log(JSON.stringify({
+    message: 'Setup complete. Copy ORDER_API_SECRET into Vercel Environment Variables.',
+    spreadsheetId,
+    spreadsheetUrl: spreadsheet.getUrl(),
+    orderApiSecret: secret
+  }, null, 2));
+  return { spreadsheetId, spreadsheetUrl: spreadsheet.getUrl(), orderApiSecret: secret };
+}
+
+function generateSecret_() {
+  return `${Utilities.getUuid().replaceAll('-', '')}${Utilities.getUuid().replaceAll('-', '')}`;
+}
+
 function json_(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -23,7 +74,7 @@ function doGet() {
 function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
-    if (!e || !e.postData || e.postData.type !== 'application/json') return json_({ success: false, error: 'Invalid request' });
+    if (!e || !e.postData || !String(e.postData.type || '').toLowerCase().startsWith('application/json')) return json_({ success: false, error: 'Invalid request' });
     if (e.postData.contents.length > 50000) return json_({ success: false, error: 'Payload too large' });
     const payload = JSON.parse(e.postData.contents);
     const properties = PropertiesService.getScriptProperties();
@@ -74,9 +125,20 @@ function validateOrder_(order) {
 }
 
 function ensureHeaders_(sheet) {
+  if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
   if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
   const current = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
   if (HEADERS.some((header, index) => current[index] !== header)) throw new Error('Invalid sheet headers');
+}
+
+function formatOrdersSheet_(sheet) {
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff');
+  sheet.getRange(1, 1, 1, HEADERS.length).setWrap(true);
+  sheet.setRowHeight(1, 34);
+  if (sheet.getMaxColumns() < HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
+  sheet.autoResizeColumns(1, HEADERS.length);
+  sheet.getRange(2, 18, Math.max(sheet.getMaxRows() - 1, 1), 5).setNumberFormat('0');
 }
 
 function findOrderRow_(sheet, orderId) {
