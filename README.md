@@ -99,7 +99,7 @@ For local Vercel development, place the same values in `/Users/krishna/Documents
 5. Test COD: the QR panel must remain hidden.
 6. Test QR Payment: the QR panel and required transaction-code field must appear.
 7. Submit the order and confirm the new row appears in the `Orders` worksheet.
-8. Click **Print receipt** in the `Payment Receipt` column and print the matching row from `Payment Receipts`.
+8. Click **Print receipt** in the `Payment Receipt` column. In `Payment Receipts`, select the bill block, choose **File → Print → Selected cells**, then choose **PDF → Download** or print it directly.
 
 For local API testing, use `vercel dev`; a plain static server cannot execute `/api/orders`.
 

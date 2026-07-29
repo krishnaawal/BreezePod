@@ -7,11 +7,6 @@ const HEADERS = [
   'Unit Price', 'Subtotal', 'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code',
   'Payment Status', 'Order Status', 'Last Updated', 'Payment Receipt'
 ];
-const RECEIPT_HEADERS = [
-  'Order ID', 'Order Date', 'Order Time', 'Customer Name', 'Primary Phone', 'Customer Email',
-  'Full Address', 'Delivery Location', 'Selected Color', 'Quantity', 'Product Amount',
-  'Delivery Charge', 'Total Amount', 'Payment Method', 'Transaction Code', 'Payment Status'
-];
 const COLORS = ['Pink', 'Green', 'Yellow', 'Orange', 'Mint / Navy', 'Burgundy / Cream', 'White / Navy'];
 const DELIVERY_CHARGES = { 'Inside Kathmandu Valley': 100, 'Outside Kathmandu Valley': 150 };
 const UNIT_PRICE = 399;
@@ -114,9 +109,9 @@ function doPost(e) {
     const orderRow = nextOrderRow_(sheet);
     sheet.getRange(orderRow, 1, 1, HEADERS.length).setValues([row.concat('')]);
     const receiptSheet = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
-    const receiptRow = receiptSheet.getLastRow() + 1;
-    receiptSheet.getRange(receiptRow, 1, 1, RECEIPT_HEADERS.length).setValues([receiptValuesFromOrder_(row)]);
-    sheet.getRange(orderRow, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptSheet.getSheetId()}&range=A${receiptRow}","Print receipt")`);
+    const receiptRow = receiptSheet.getLastRow() ? receiptSheet.getLastRow() + 2 : 1;
+    renderReceiptBlock_(receiptSheet, receiptRow, row);
+    sheet.getRange(orderRow, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptSheet.getSheetId()}&range=A${receiptRow}:B${receiptRow + 19}","Print receipt")`);
     return json_({ success: true, orderId: order.orderId });
   } catch (error) {
     return json_({ success: false, error: error.message === 'Duplicate order' ? 'Duplicate order' : 'Unable to save order' });
@@ -193,32 +188,51 @@ function ensureReceiptsSheet_(spreadsheet) {
   let receipt = spreadsheet.getSheetByName(RECEIPTS_SHEET_NAME);
   let shouldFormat = false;
   if (!receipt) { receipt = spreadsheet.insertSheet(RECEIPTS_SHEET_NAME); shouldFormat = true; }
-  if (receipt.getMaxColumns() < RECEIPT_HEADERS.length) receipt.insertColumnsAfter(receipt.getMaxColumns(), RECEIPT_HEADERS.length - receipt.getMaxColumns());
-  if (receipt.getLastRow() === 0) { receipt.getRange(1, 1, 1, RECEIPT_HEADERS.length).setValues([RECEIPT_HEADERS]); shouldFormat = true; }
   if (shouldFormat) formatReceiptsSheet_(receipt);
   return receipt;
 }
 
-function receiptValuesFromOrder_(row) {
-  return [row[0], row[1], row[2], row[3], row[4], row[5] || '', row[6], row[7], row[8], row[9], row[11], row[12], row[13], row[14], row[15] || '', row[16]].map(safeCell_);
-}
-
 function syncReceipts_(ordersSheet, receiptsSheet) {
   const orderRows = ordersSheet.getRange(2, 1, Math.max(ordersSheet.getMaxRows() - 1, 1), HEADERS.length).getValues().filter(row => String(row[0] || '').trim());
-  if (receiptsSheet.getMaxRows() > 1) receiptsSheet.getRange(2, 1, receiptsSheet.getMaxRows() - 1, RECEIPT_HEADERS.length).clearContent();
-  if (!orderRows.length) return;
-  const receiptRows = orderRows.map(receiptValuesFromOrder_);
-  receiptsSheet.getRange(2, 1, receiptRows.length, RECEIPT_HEADERS.length).setValues(receiptRows);
-  orderRows.forEach((row, index) => ordersSheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptsSheet.getSheetId()}&range=A${index + 2}","Print receipt")`));
+  receiptsSheet.clear();
+  formatReceiptsSheet_(receiptsSheet);
+  orderRows.forEach((row, index) => {
+    const receiptRow = index ? 1 + index * 21 : 1;
+    renderReceiptBlock_(receiptsSheet, receiptRow, row);
+    ordersSheet.getRange(index + 2, HEADERS.length).setFormula(`=HYPERLINK("#gid=${receiptsSheet.getSheetId()}&range=A${receiptRow}:B${receiptRow + 19}","Print receipt")`);
+  });
 }
 
 function formatReceiptsSheet_(sheet) {
   sheet.setHiddenGridlines(true);
-  sheet.setFrozenRows(1);
-  sheet.getRange(1, 1, 1, RECEIPT_HEADERS.length).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setWrap(true);
-  sheet.setRowHeight(1, 34);
-  sheet.autoResizeColumns(1, RECEIPT_HEADERS.length);
-  sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), RECEIPT_HEADERS.length).setWrap(true).setVerticalAlignment('top');
+  sheet.setColumnWidth(1, 180);
+  sheet.setColumnWidth(2, 360);
+}
+
+function renderReceiptBlock_(sheet, startRow, row) {
+  sheet.getRange(startRow, 1, 1, 2).merge().setValue('BreezePod Nepal — PAYMENT RECEIPT');
+  sheet.getRange(startRow + 1, 1, 1, 2).merge().setValue('Keep this receipt for your records.');
+  const fields = [
+    ['Order number', row[0]], ['Date and time', `${displayDate_(row[1], 'yyyy-MM-dd')} ${displayDate_(row[2], 'hh:mm a')}`],
+    ['Customer name', row[3]], ['Phone number', row[4]], ['Email', row[5] || '—'],
+    ['Full delivery address', row[6]], ['Delivery location', row[7]], ['Selected color', row[8]],
+    ['Quantity', row[9]], ['Product amount', `Rs. ${row[11]}`], ['Delivery charge', `Rs. ${row[12]}`],
+    ['Payment method', row[14]], ['Transaction code', row[15] || '—'], ['Payment status', row[16]],
+    ['TOTAL PAYABLE', `Rs. ${row[13]}`]
+  ];
+  sheet.getRange(startRow + 3, 1, fields.length, 2).setValues(fields).setWrap(true).setVerticalAlignment('top');
+  sheet.getRange(startRow, 1, 1, 2).setFontSize(16).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setHorizontalAlignment('center');
+  sheet.getRange(startRow + 1, 1, 1, 2).setFontStyle('italic').setFontColor('#6b7d76').setHorizontalAlignment('center');
+  sheet.getRange(startRow + 3, 1, fields.length, 1).setFontWeight('bold').setFontColor('#6b7d76');
+  sheet.getRange(startRow + 3, 1, fields.length, 2).setBorder(false, false, true, false, false, false, '#e8e4d9', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(startRow + 3 + fields.length - 1, 1, 1, 2).setFontSize(15).setFontWeight('bold').setBackground('#f4d47b');
+  sheet.setRowHeight(startRow, 32);
+  sheet.setRowHeight(startRow + 1, 24);
+  sheet.autoResizeRows(startRow + 3, fields.length);
+}
+
+function displayDate_(value, format) {
+  return value instanceof Date ? Utilities.formatDate(value, TIMEZONE, format) : String(value || '—');
 }
 
 function findOrderRow_(sheet, orderId) {
