@@ -212,32 +212,23 @@ function formatReceiptsSheet_(sheet) {
 function renderReceiptBlock_(sheet, startRow, row) {
   sheet.getRange(startRow, 1, 1, 2).merge().setValue('BreezePod Nepal — PAYMENT RECEIPT');
   sheet.getRange(startRow + 1, 1, 1, 2).merge().setValue(`Order ID: ${row[0]}  ·  ${displayDate_(row[1], 'yyyy-MM-dd')} ${displayDate_(row[2], 'hh:mm a')}`);
-  const productImage = {
-    Pink: 'https://breeze-pod.vercel.app/assets/product-hero.png', Green: 'https://breeze-pod.vercel.app/assets/product-green.png',
-    Yellow: 'https://breeze-pod.vercel.app/assets/product-yellow.png', Orange: 'https://breeze-pod.vercel.app/assets/product-orange.png',
-    'Mint / Navy': 'https://breeze-pod.vercel.app/assets/product-mint.png', 'Burgundy / Cream': 'https://breeze-pod.vercel.app/assets/product-burgundy.png', 'White / Navy': 'https://breeze-pod.vercel.app/assets/product-navy.png'
-  }[row[8]] || 'https://breeze-pod.vercel.app/assets/product-hero.png';
-  sheet.getRange(startRow + 3, 1).setFormula(`=IMAGE("${productImage}",4,120,120)`);
-  sheet.getRange(startRow + 3, 2).setValue(`BreezePod Mini Fan\n${row[8]} · ${row[9]} ${Number(row[9]) === 1 ? 'unit' : 'units'}`);
-  sheet.getRange(startRow + 5, 1, 1, 2).merge().setValue('CUSTOMER & DELIVERY DETAILS');
+  sheet.getRange(startRow + 3, 1, 1, 2).merge().setValue('PAYMENT DETAILS');
   const fields = [
     ['Customer name', row[3]], ['Phone number', row[4]], ['Email', row[5] || '—'],
-    ['Full delivery address', row[6]], ['Delivery location', row[7]],
     ['Payment method', row[14]], ['Transaction code', row[15] || '—'], ['Payment status', row[16]],
     ['Product price', `Rs. ${row[11]}`], ['Delivery charge', `Rs. ${row[12]}`], ['TOTAL PAYABLE', `Rs. ${row[13]}`]
   ];
-  sheet.getRange(startRow + 6, 1, fields.length, 2).setValues(fields).setWrap(true).setVerticalAlignment('top');
+  sheet.getRange(startRow + 4, 1, fields.length, 2).setValues(fields).setWrap(true).setVerticalAlignment('top');
   sheet.getRange(startRow, 1, 1, 2).setFontSize(16).setFontWeight('bold').setBackground('#173b36').setFontColor('#ffffff').setHorizontalAlignment('center');
   sheet.getRange(startRow + 1, 1, 1, 2).setFontStyle('italic').setFontColor('#6b7d76').setHorizontalAlignment('center');
-  sheet.getRange(startRow + 3, 2).setFontSize(15).setFontWeight('bold').setFontColor('#173b36').setVerticalAlignment('middle');
-  sheet.getRange(startRow + 5, 1, 1, 2).setFontWeight('bold').setFontColor('#f67252').setBackground('#fff4ed');
-  sheet.getRange(startRow + 6, 1, fields.length, 1).setFontWeight('bold').setFontColor('#6b7d76');
-  sheet.getRange(startRow + 6, 1, fields.length, 2).setBorder(false, false, true, false, false, false, '#e8e4d9', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange(startRow + 6 + fields.length - 1, 1, 1, 2).setFontSize(18).setFontWeight('bold').setBackground('#f4d47b');
+  sheet.getRange(startRow + 3, 1, 1, 2).setFontWeight('bold').setFontColor('#f67252').setBackground('#fff4ed');
+  sheet.getRange(startRow + 4, 1, fields.length, 1).setFontWeight('bold').setFontColor('#6b7d76');
+  sheet.getRange(startRow + 4, 1, fields.length, 2).setBorder(false, false, true, false, false, false, '#e8e4d9', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(startRow + 4 + fields.length - 1, 1, 1, 2).setFontSize(18).setFontWeight('bold').setBackground('#f4d47b');
   sheet.setRowHeight(startRow, 32);
   sheet.setRowHeight(startRow + 1, 24);
-  sheet.setRowHeight(startRow + 3, 135);
-  sheet.autoResizeRows(startRow + 6, fields.length);
+  sheet.setRowHeight(startRow + 3, 26);
+  sheet.autoResizeRows(startRow + 4, fields.length);
 }
 
 function displayDate_(value, format) {
